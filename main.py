@@ -19,6 +19,7 @@
 # The first column named `_id` can be used as index.**"
 
 import argparse
+import operator
 import re
 # "Imagine a grocery store with multiple aisles and multiple people waiting in each line.
 # You quickly look at the items in each customers basket and know exactly how long it will take them to check out.
@@ -43,6 +44,10 @@ from reversecomplementDNA.reversecomplementDNA import reversecomplementDNA, vali
 # Determine the top 10 genes with the highest mean relative abundance found across both subjects.
 # The Gene label can be found in the `features` dataframe.**"
 
+def normalize(sum, numberoffeatures=2632):
+    return sum / numberoffeatures
+
+
 def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfilename: str, sequencesfilename: str):
     ###########################################################################
     sequencedict: dict = {}
@@ -53,97 +58,170 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
                 header = line
             else:
                 sequencedict[header] = line
-    print("After reading sequences fna file")
+
     ###########################################################################
     datainfodict2d: dict = {}
     samplelist: list[str] = []
-    samplecounter: int
-    samplecounter = 0
+    featurecounter: int
+    featurecounter = 0
+    relativeabundancepersample: dict = {}
+    numberoffeatures: int
+    expressedtranscriptspersample : dict = {}
     with open(datafilename) as datafile:
+        # split for each sample id, abundence per feature
         rows = (line.split('\t') for line in datafile)
+        # TBD
+        # convert to pandas df and colsum / rowsum as sep func
+        samplecounter: int
         for row in rows:
-            #print(row)
-            if samplecounter != 0:
+            if featurecounter != 0:
+                for samplecounter in range(1, len(samplelist)):
+                    if samplelist[samplecounter] not in relativeabundancepersample.keys():
+                        relativeabundancepersample[samplelist[samplecounter]] = 0
+                    if samplelist[samplecounter] not in expressedtranscriptspersample.keys():
+                        expressedtranscriptspersample[samplelist[samplecounter]] = []
+
+                    # add abundance measures for each transcript
+                    if int(row[1:][samplecounter]) !=0:
+                        relativeabundancepersample[samplelist[samplecounter]] = relativeabundancepersample.get(
+                            samplelist[samplecounter]) + int(row[1:][samplecounter])
+                        # Add expressed transcripts for each sample
+                        expressedtranscriptspersample[samplelist[samplecounter]].append(row[0])
+
                 loopingcounter: int
                 for loopingcounter in range(1, len(samplelist)):
-                    # first index is the sample id
+                    # first index is the sample id from the header
+                    # inner index is the feature id per row
                     datainfodict2d[samplelist[loopingcounter]][row[0]] = row[1:][loopingcounter]
-            elif samplecounter == 0:
+            elif featurecounter == 0:
                 # header row
                 # parse to get sample information
                 for sample in row[1:]:
                     samplelist.append(sample)
                     datainfodict2d[sample] = {}
-            samplecounter = samplecounter + 1
-        print(" Number of data file entries read ", samplecounter)
+            featurecounter = featurecounter + 1
+        relativeabundancepersample = {k: normalize(v, 2632) for k, v in relativeabundancepersample.items()}
         ###########################################################################
         samplefileheaderlist: list[str] = []
-        samplecounter: int
-        samplecounter = 0
+        featurecounter: int
+        featurecounter = 0
         missingsamples: list[str] = []
         subjectstreatedwithdrugs: dict = {}
+        samplessubject: dict = {}
         with open(samplesfilename) as samplefile:
-            rows = (line.split('\t') for line in samplefile)
-            for row in rows:
-                if samplecounter != 0:
+            samplefilerows = (line.split('\t') for line in samplefile)
+            for row in samplefilerows:
+                if featurecounter != 0:
                     loopingcounter: int
                     for loopingcounter in range(1, len(samplefileheaderlist)):
-                        # row[0] is sample information  / LS108 etc.
+                        # row[0] is header info
                         if row[0] in datainfodict2d.keys():
                             datainfodict2d[row[0]][samplefileheaderlist[loopingcounter]] = row[1:][loopingcounter]
                             if samplefileheaderlist[loopingcounter] == "Subject":
-                                # Contains the subject information
-                                # Add the sample information
-                                # Add dict of subject -> (sample id, treated with drug, days since experiment started)
-                                # "Treated_with_drug": row[1:][loopingcounter+1]
-                                # key is subject and treatment with drug (yes or no)
-                                # value is sample ids
+                                # key into hash is subject1 / subject2 and
+                                # treated with drugs yes /no is the 2nd key into the hash
+                                # value of this 2d key is sample  id
                                 if row[1:][loopingcounter] not in subjectstreatedwithdrugs.keys():
                                     subjectstreatedwithdrugs[row[1:][loopingcounter]] = {}
-                                if row[1:][loopingcounter+1] not in subjectstreatedwithdrugs[row[1:][loopingcounter]].keys():
-                                    subjectstreatedwithdrugs[row[1:][loopingcounter]][row[1:][loopingcounter+1]] = []
-
-                                subjectstreatedwithdrugs[row[1:][loopingcounter]][row[1:][loopingcounter+1]].append(row[0])
+                                if row[1:][loopingcounter + 1] not in subjectstreatedwithdrugs[
+                                    row[1:][loopingcounter]].keys():
+                                    subjectstreatedwithdrugs[row[1:][loopingcounter]][row[1:][loopingcounter + 1]] = []
+                                subjectstreatedwithdrugs[row[1:][loopingcounter]][row[1:][loopingcounter + 1]].append(
+                                    row[0])
+                                # create association of sample id and type of subject (subject 1 / subject 2)
+                                if row[0] not in samplessubject.keys():
+                                    samplessubject[row[0]] = row[1:][loopingcounter]
                         else:
                             missingsamples.append(row[0])
-                elif samplecounter == 0:
+                elif featurecounter == 0:
                     # header row
                     for field in row[1:]:
                         # fields called sample, values, barcode sequence, linker primer sequence
                         samplefileheaderlist.append(field)
-
-                samplecounter = samplecounter + 1
-    print("After reading in sample info records ", samplecounter)
+                featurecounter = featurecounter + 1
     ##################################################################################################
     featurefileheaderlist: list[str] = []
     featurecounter: int
     featurecounter = 0
     featureinfodict2d: dict = {}
+    transcriptgene: dict = {}
+    genesrelativeabundance: dict = {}
     # 4	module_6	gene_480	transcript_480.6
+    # feature id, confidence, count, pathwaymodule, gene, transcript
     # 4483174	1	3	pathway_5	module_67	gene_471	transcript_471.4
-    pattern = re.compile("^(\d+\s+\d+\s+\d+\s+\W+\s+\W+\s+\W+\s+\W+)$")
+    pattern = re.compile("^(\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+\S+)$")
     with open(featuresfilename) as featurefile:
         # leaves out the line 4 module_6 gene_480 transcript_480.6
         # where confidence and count are unavailable
-        rows = (line.split('\t') for line in featurefile if pattern.match(line))
-        for row in rows:
+        featurefilerows = (line.split('\t') for line in featurefile if pattern.match(line))
+        for row in featurefilerows:
             if featurecounter != 0:
                 loopingcounter: int
                 for loopingcounter in range(1, len(featurefileheaderlist)):
-                    # row[0] is the id
+                    # row[0] is the feature id
                     # header is _id	confidence	count	Pathway	module	Gene	Transcript
-                    #print("*****",row[0],"\t", featurefileheaderlist[loopingcounter],"\t", row[1:][loopingcounter])
-
-                    featureinfodict2d[row[0]][featurefileheaderlist[loopingcounter]] = row[1:][loopingcounter]
+                    # row[0] is transcript information
+                    if row[0] not in featureinfodict2d.keys():
+                        featureinfodict2d[row[0]] = {}
+                    if featurefileheaderlist[loopingcounter] not in featureinfodict2d[row[0]].keys():
+                        featureinfodict2d[row[0]][featurefileheaderlist[loopingcounter]] = row[1:][loopingcounter]
+                    # add the transcript - gene association
+                    if featurefileheaderlist[loopingcounter] == 'Gene':
+                        transcriptgene[row[0]] = row[1:][loopingcounter]
             elif featurecounter == 0:
                 # header row
-                for sample in row[1:]:
-                    featurefileheaderlist.append(sample)
-                    featureinfodict2d[sample] = {}
+                for headerfield in row[1:]:
+                    featurefileheaderlist.append(headerfield)
+
             featurecounter = featurecounter + 1
-    print("After reading in sample info records ", samplecounter)
+
+    relativeabundancepersample_sorted = dict(sorted(relativeabundancepersample.items(),
+                                                    key=lambda item: item[1],
+                                                    reverse=True))
+    # merge relativeabundancepersample_sorted and samplesubject on sample id
+    print("######### relative abundance per sample keys ")
+    print(relativeabundancepersample_sorted.keys())
+    print("######### transcript gene ")
+    print(transcriptgene.keys())
+    print("##### subject treated with drugs ")
+    print(subjectstreatedwithdrugs.keys())
+
+    #gene -> transcript -> sample ->  treated with drugs -> subject : mean abundance for that sample
+    geneswithmostrelativeabundance: dict = {}
+    for subject in subjectstreatedwithdrugs.keys():
+        if subject not in geneswithmostrelativeabundance.keys():
+            geneswithmostrelativeabundance[subject] = {}
+        for treatedwithdrugsyesno in subjectstreatedwithdrugs.get(subject).keys():
+            if treatedwithdrugsyesno not in geneswithmostrelativeabundance[subject].keys():
+                geneswithmostrelativeabundance[subject][treatedwithdrugsyesno] = {}
+            for sampleid in subjectstreatedwithdrugs.get(subject).get(treatedwithdrugsyesno):
+                if sampleid not in geneswithmostrelativeabundance[subject][treatedwithdrugsyesno].keys():
+                    geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid] = {}
+                if sampleid in expressedtranscriptspersample.keys():
+                    for transcript in expressedtranscriptspersample.get(sampleid):
+                        if transcript not in geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid].keys():
+                            geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid][transcript] = {}
+                            if transcriptgene.get(transcript) not in geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid].keys():
+                                geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid][transcript][
+                                transcriptgene.get(transcript)] = {}
+                                geneswithmostrelativeabundance[subject][treatedwithdrugsyesno][sampleid][transcript][transcriptgene.get(transcript)] = relativeabundancepersample_sorted.get(sampleid)
+                                if transcriptgene.get(transcript) not in genesrelativeabundance.keys():
+                                    genesrelativeabundance[transcriptgene.get(transcript)] = []
+                                    # Add mean relative abundance to generelativeabundance
+                                    # gene expressed via multiple transcripts in multiple samples
+                                    # hence list
+                                genesrelativeabundance[transcriptgene.get(transcript)].append(relativeabundancepersample_sorted.get(sampleid))
+
+    intersection = dict(relativeabundancepersample_sorted.items() & transcriptgene.items())
+    print(intersection)
+
+    for gene in genesrelativeabundance.keys():
+        print("Gene ", gene, " Relative abundances ", genesrelativeabundance.get(gene))
+    # Determine the top 10 genes with the highest mean relative abundance found across both subjects.
+    # The Gene label can be found in the `features` dataframe.**"
+    exit(1)
     ##################################################################################################
-    return sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs
+    return sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs, relativeabundancepersample_sorted
 
 
 def ParseNestedParen(string, level):
@@ -221,11 +299,15 @@ if __name__ == '__main__':
         samplesfilename = "data/samples.txt"
         sequencesfilename = "data/sequences.fna"
         print("Before finding genes of significance")
-        sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs = findgenesofsignificance(datafilename, featuresfilename, samplesfilename, sequencesfilename)
+        sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs, relativeabundancepersample = findgenesofsignificance(
+            datafilename, featuresfilename, samplesfilename, sequencesfilename)
         print("After reading in samples, data features")
         for key in datainfodict2d.keys():
             print(key)
             print(datainfodict2d.get(key))
+        print("Relative abundance printing ")
+        for key in relativeabundancepersample:
+            print("***", key, "\t", relativeabundancepersample.get(key))
     finally:
         print(list(checkforvalidparentheses("{([((()])))[][[()]]}")))
         print("After printing the first 15 lines")
