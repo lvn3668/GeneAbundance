@@ -19,6 +19,6 @@ def readfnafile(sequencesfilename: str):
                 sequencedict[header] = line
                 sampleid_to_length_association[sampleid] = len(line)
     maxcount = max(sampleid_to_length_association.values())
-    transcriptcount = {k: normalize(v, maxcount) for k, v in transcriptcount.items()}
+    transcriptcount = {k: normalize(v, maxcount) for k, v in sampleid_to_length_association.items()}
     return sequencedict, sampleid_to_length_association
 ###########################################################################
