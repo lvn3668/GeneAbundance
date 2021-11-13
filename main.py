@@ -29,12 +29,15 @@ import re
 # Results should be “AGGTACGGCCAGGT”.
 # Add a validation step to show that the results is what expected.\n",
 from checkfornumberofperfectsquares.countperfectsquares import findperfectsquares
-from findrelativeabundanceofgenes.findrelabundancegenes import findrelativeabundanceofgenes
-from readdatafile.readdatafile import readdatafile
-from readfeaturefile.readfeaturesfiles import readfeaturesfile
-from readsamplemetadatafile.readsamplemetadatainformation import readsampleinformation
+from findexpressionvalues_sample_gene_association.findexpressionvalues_sample_gene_association import \
+    findexpressionvalues_gene_sample_association
+from readdatafile.readdatafile import readsampletofeatureexpressionvalues, normalize
+from readfeaturefile.readfeaturesfiles import readfeaturesmetadatafile
+from readsamplemetadatafile.readsamplemetadatainformation import readsamplemetadatainformation
 from readsequencefiles.readsequencesfna import readfnafile
 from reversecomplementDNA.reversecomplementDNA import reversecomplementDNA, validationofreversecomplement
+from sample_to_gene_association.sample_gene_association import *
+
 
 # Explore the `samples` metadata. Calculate how many sequenced samples are available
 # for each subject (\"Subject\" column) across treatment usage (\"Treated_with_drug\" column).
@@ -46,70 +49,160 @@ from reversecomplementDNA.reversecomplementDNA import reversecomplementDNA, vali
 # The Gene label can be found in the `features` dataframe.**"
 
 def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfilename: str, sequencesfilename: str):
+    print("Inside find genes of significance ", sequencesfilename)
+    sequence_header_to_fnasequence_association, sampleid_to_length_association_normalizedoverrmaxlength = readfnafile(
+        sequencesfilename)
 
-    sequencedict, sampleid_to_length_association = readfnafile(sequencesfilename)
-    geneexprvalsperfeaturespersample, relativeabundancepersample, expressedtranscriptspersample = readdatafile(datafilename)
-    #         datainfodict2d, samplid_to_subject_association, subjectstreatedwithdrugs, missingsamples, sampleid_to_dayssinceexperimentstarted_normalized
-    geneexprvalsperfeaturespersample, samplessubject, subjectstreatedwithdrugs, missingsamples, sampleid_to_dayssinceexperimentstarted_normalized = readsampleinformation(samplesfilename, geneexprvalsperfeaturespersample)
-    featureinfodict2d, transcriptgene,transcriptconfidence, transcriptcount  = readfeaturesfile(featuresfilename)
-    relativeabundancepersample_sorted = dict(sorted(relativeabundancepersample.items(),
-                                                    key=lambda item: item[1],
-                                                    reverse=True))
-    genesrelativeabundance: dict = {}
-    print("######### relative abundance per sample keys ")
-    print(relativeabundancepersample_sorted.keys())
+    sample_expressedfeature_or_transcript_expressionvalues_matrix, meanexpression_per_sample_for_all_features_or_transcripts_sorted, \
+    expressedtranscriptspersample_sampletotranscriptassoc = readsampletofeatureexpressionvalues(
+        datafilename)
+
+    sample_expressedfeature_or_transcript_expressionvalues_matrix, samplid_to_subject_association, \
+    subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, \
+    sampleid_to_dayssinceexperimentstarted_normalized = readsamplemetadatainformation(
+        samplesfilename, sample_expressedfeature_or_transcript_expressionvalues_matrix)
+
+    features_metadata, transcript_or_feature_to_gene_association, transcript_or_feature_to_confidence_association, \
+    transcript_or_feature_to_count_association, gene_to_transcript_or_feature_association, \
+    pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes,\
+        gene_to_pathway_association, pathway_to_gene_association = readfeaturesmetadatafile(
+        featuresfilename)
+
+    print("Before finding sample to gene association")
+    sample_to_gene_association, gene_to_sample_association = find_sample_gene_association(
+        transcript_or_feature_to_gene_association, expressedtranscriptspersample_sampletotranscriptassoc)
+
     print("######### transcript gene ")
-    print(transcriptgene.keys())
+    print(transcript_or_feature_to_gene_association.keys())
     print("##### subject treated with drugs ")
-    print(subjectstreatedwithdrugs.keys())
-    genesrelativeabundance = findrelativeabundanceofgenes(subjectstreatedwithdrugs, expressedtranscriptspersample,
-                                 transcriptgene, relativeabundancepersample_sorted,
-                                 genesrelativeabundance)
+    print(subjects_treatedwithdrugs_to_sample_association.keys())
+    expressionvalues_subject_drugtreatment_sampleid_transcript_gene: dict
+    geneid_expressionvalues: dict
+    expressionvalues_subject_drugtreatment_sampleid_transcript_gene, geneid_expressionvalues \
+        = findexpressionvalues_gene_sample_association(
+        subjects_treatedwithdrugs_to_sample_association,
+        expressedtranscriptspersample_sampletotranscriptassoc,
+        transcript_or_feature_to_gene_association,
+        meanexpression_per_sample_for_all_features_or_transcripts_sorted)
 
-    intersection = dict(relativeabundancepersample_sorted.items() & transcriptgene.items())
+    intersection = dict(
+        meanexpression_per_sample_for_all_features_or_transcripts_sorted.items() & transcript_or_feature_to_gene_association.items())
     print(intersection)
 
-    for gene in genesrelativeabundance.keys():
+    print('Dictionary in descending order by value : ',
+          pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes)
+
+    genesrankedbypathwayexpression: dict = {}
+    for gene in geneid_expressionvalues.keys():
+        # get rank of the pathways it is expressed in
+        if gene not in genesrankedbypathwayexpression.keys():
+            genesrankedbypathwayexpression[gene] = 0
+
+        pathwayrank: float = 0
+        print("Pathway associated with gene ", gene, " ", gene_to_pathway_association.get(gene))
+        for pathway in set(gene_to_pathway_association.get(gene)):
+            print("Pathway associated with gene *", pathway.strip(),"* ", pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes.get(pathway.strip()))
+            pathwayrank += pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes.get(pathway.strip())
+        print("Gene ", gene, " Pathway rank ", pathwayrank)
+        genesrankedbypathwayexpression[gene] = pathwayrank
+
+    import json
+    print(json.dumps(genesrankedbypathwayexpression, sort_keys=True, indent=2))
+    print("After printing gene list ranked by pathway expression NOT normalized ( num genes num modules correlated)")
+
+    genesmissingpathwayassociations: list[str] = []
+    for gene in geneid_expressionvalues.keys():
         # Multiply by confidence to normalize
         # Use counts to normalize
         listofabundancevals: list[str] = []
-        for relabundance in genesrelativeabundance.get(gene):
-            if gene in transcriptconfidence.keys():
-                relabundance = relabundance * float(transcriptconfidence.get(gene))
-            if gene in transcriptcount.keys():
-                relabundance = relabundance * float(transcriptcount.get(gene))
-        # abundance values normalized by count and confidence level
-        # Use days since experiment started for treated-with-drug NO
-        # If it is NOT treated with drugs and days since experiment started is greater than 0
+        for expressionvaluesnormalizedoverexpressedfeatures_or_transcripts in geneid_expressionvalues.get(gene):
+            if genesrankedbypathwayexpression.get(gene) != 0:
+                expressionvaluesnormalizedoverexpressedfeatures_or_transcripts = expressionvaluesnormalizedoverexpressedfeatures_or_transcripts*genesrankedbypathwayexpression.get(gene)
+            else:
+                genesmissingpathwayassociations.append(gene)
+            # key is gene
+            # value is normalized expression values
+            for transcript in gene_to_transcript_or_feature_association.get(gene):
+                # sum all the transcript confidence measures
+                sum_transcript_confidence_measure: float = 0
+                if transcript in transcript_or_feature_to_confidence_association.keys():
+                    sum_transcript_confidence_measure = sum_transcript_confidence_measure + float(transcript_or_feature_to_confidence_association.get(transcript))
+
+                # then normalize by count
+                sum_transcript_count_measure: float = 0
+                if transcript in transcript_or_feature_to_count_association.keys():
+                    sum_transcript_count_measure = sum_transcript_count_measure + float(transcript_or_feature_to_count_association.get(transcript))
+
+            # normalize by confidence and count (positive correlation)
+            expressionvaluesnormalizedoverexpressedfeatures_or_transcripts = expressionvaluesnormalizedoverexpressedfeatures_or_transcripts * sum_transcript_confidence_measure * sum_transcript_count_measure
+
+            # abundance values normalized by count and confidence level
+            # Use days since experiment started for treated-with-drug NO
+            # If it is NOT treated with drugs and days since experiment started is greater than 0
             # Inverse proportion
-            # Longer the ample in the experiment, and not treated with drug, over expressed it is,
+            # Longer the sample in the experiment, and not treated with drug, over expressed it is,
             # Normalize days since experiment started (0/ (max), 10 /(max) , etc.)
             # Abundance is unaltered for treated-with-drug yes cases (????)
-            # For untreated cases, account for over expression / underexpression by DIVIDING the abundance measure
+            # For untreated cases, account for over expression / under expression by DIVIDING the abundance measure
             # by normalized days-since-experiment-started
-            # This will underexpress those transcripts belonging to UNTREATED samples, that have been the longest in the experiment pool
+            # This will underexpress those transcripts belonging to UNTREATED samples,
+            # that have been the longest in the experiment pool
+            for sample in gene_to_sample_association.get(gene):
+                sumdayssinceexperimentstarted: float = 0
+                if sample in sampleid_to_dayssinceexperimentstarted_normalized.keys() and \
+                        sampleid_to_dayssinceexperimentstarted_normalized.get(sample) != 0:
+                    sumdayssinceexperimentstarted = sumdayssinceexperimentstarted + sampleid_to_dayssinceexperimentstarted_normalized.get(sample)
 
-            if gene in sampleid_to_dayssinceexperimentstarted_normalized.keys() and sampleid_to_dayssinceexperimentstarted_normalized.get(gene) != 0:
-                relabundance = relabundance / sampleid_to_dayssinceexperimentstarted_normalized.get(gene)
-                listofabundancevals.append(relabundance)
+            if sumdayssinceexperimentstarted !=0:
+                expressionvaluesnormalizedoverexpressedfeatures_or_transcripts = expressionvaluesnormalizedoverexpressedfeatures_or_transcripts / sumdayssinceexperimentstarted
+
+            # gene is part of multiple samples
+            # for each sample, that the gene is expressed in
+            # get sequence length (normalized over longest sequence length)
+            # aggregate normalized sequence lengths
+            # divide by the sum
+            # negative correlation (longer the sequence, longer the PCR fragments and higher expression values)
+            # correction is by dividing the sum of lengths
+            for sample in gene_to_sample_association.get(gene):
+                    sumnormalizedsequencelengths: float = 0
+                    if sample in sampleid_to_length_association_normalizedoverrmaxlength.keys() and \
+                            sampleid_to_length_association_normalizedoverrmaxlength.get(sample) != 0:
+                        sumnormalizedsequencelengths = sumnormalizedsequencelengths + sampleid_to_length_association_normalizedoverrmaxlength.get(
+                            sample)
+
+            if sumnormalizedsequencelengths !=0:
+                expressionvaluesnormalizedoverexpressedfeatures_or_transcripts = expressionvaluesnormalizedoverexpressedfeatures_or_transcripts / sumnormalizedsequencelengths
+            listofabundancevals.append(expressionvaluesnormalizedoverexpressedfeatures_or_transcripts)
+
+
+
+        # TBD:
+        # 1. Use numpy and panda to find correlations between
+        # sequence length and number of expressed transcripts
+        # number of expressed trancripts / features and days in pool
+        # ???? anything between sequence length and days in pool (positive correln?)
+        # transcript length and confidence measure (positive correln expected)
+        # transcript count????
+        # correct normaliztion algo based on the correln coefficients
         # Sample length from fna file
         # check for correlation between sample length and number of expressed transcripts / features
         # assuming positive correlation
 
-
         # normalize over sample length (gene abundance can come from multiple transcripts from different samples)
 
+        ## Pathway ranking (done)
         # build pathway module gene association
         # A gene can be implicated in multiple pathways and a pathway should have mutiple modules
         # A gene from a well expressed pathway -> HOW to normalize
-        genesrelativeabundance[gene] = listofabundancevals
-        print("Gene ", gene, " Relative abundances ", genesrelativeabundance.get(gene))
+
+        # to check: functional association and gene abundance expression
+        geneid_expressionvalues[gene] = listofabundancevals
+        print("Gene ", gene, " Relative abundances ", geneid_expressionvalues.get(gene))
 
     # Determine the top 10 genes with the highest mean relative abundance found across both subjects.
     # The Gene label can be found in the `features` dataframe.**"
-
     ##################################################################################################
-    return sequencedict, featureinfodict2d, geneexprvalsperfeaturespersample, missingsamples, subjectstreatedwithdrugs, relativeabundancepersample_sorted
+    return sequence_header_to_fnasequence_association, features_metadata, sample_expressedfeature_or_transcript_expressionvalues_matrix, samples_with_missing_expression_values, subjects_treatedwithdrugs_to_sample_association
 
 
 def ParseNestedParen(string, level):
@@ -168,7 +261,7 @@ if __name__ == '__main__':
     try:
         with open("data/sequences.fna") as file:
             while line := file.readline().rstrip():
-                print(line)
+                # print(line)
                 counter = counter + 1
                 if counter == 15:
                     break
@@ -187,15 +280,15 @@ if __name__ == '__main__':
         samplesfilename = "data/samples.txt"
         sequencesfilename = "data/sequences.fna"
         print("Before finding genes of significance")
-        sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs, relativeabundancepersample = findgenesofsignificance(
+        sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs = findgenesofsignificance(
             datafilename, featuresfilename, samplesfilename, sequencesfilename)
         print("After reading in samples, data features")
-        for key in datainfodict2d.keys():
-            print(key)
-            print(datainfodict2d.get(key))
+        #for key in datainfodict2d.keys():
+        #    print(key)
+        #    print(datainfodict2d.get(key))
         print("Relative abundance printing ")
-        for key in relativeabundancepersample:
-            print("***", key, "\t", relativeabundancepersample.get(key))
+        # for key in relativeabundancepersample:
+        #    print("***", key, "\t", relativeabundancepersample.get(key))
     finally:
         print(list(checkforvalidparentheses("{([((()])))[][[()]]}")))
         print("After printing the first 15 lines")
