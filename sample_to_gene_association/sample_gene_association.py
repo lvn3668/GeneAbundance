@@ -1,10 +1,8 @@
 # Author: Lalitha Viswanathan
 # Correlate samples to genes
 
-def remove_duplicates(dictvaluewithduplicates):
-    return list(set(dictvaluewithduplicates))
-
-def find_sample_gene_association(transcript_or_feature_to_gene_association: dict, sample_to_expressed_feature_or_transcript_association: dict):
+def find_sample_gene_association(transcript_or_feature_to_gene_association: dict,
+                                 sample_to_expressed_feature_or_transcript_association: dict):
     # key is transcript or feature
     sample_to_gene_association: dict = {}
     gene_to_sample_association: dict = {}
@@ -25,9 +23,9 @@ def find_sample_gene_association(transcript_or_feature_to_gene_association: dict
                     gene_to_sample_association[geneid].append(sampleid)
             else:
                 if sampleid not in sample_to_gene_association.keys():
-                        sample_to_gene_association[sampleid] = transcript_or_feature_to_gene_association.get(key)
+                    sample_to_gene_association[sampleid] = transcript_or_feature_to_gene_association.get(key)
                 if transcript_or_feature_to_gene_association.get(key) not in gene_to_sample_association.keys():
-                        gene_to_sample_association[transcript_or_feature_to_gene_association.get(key)] = sampleid
+                    gene_to_sample_association[transcript_or_feature_to_gene_association.get(key)] = sampleid
 
     import json
     print(json.dumps(sample_to_gene_association, sort_keys=True, indent=2))

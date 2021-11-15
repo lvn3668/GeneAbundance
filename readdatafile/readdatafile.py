@@ -8,24 +8,14 @@ def normalize(value, divisor):
     else:
         return float(divisor)
 
-# def normalize(value, divisor):
-#     print(" value ", value , " type ", type(value), " divisor ", divisor, " type ", type(divisor))
-#     if type(value) == "<class 'numpy.float64'>":
-#         if divisor != 0:
-#             return float(value) / float(divisor)
-#         else:
-#             return float(value)
-#     elif type(value) == "<class 'int'>":
-#         if int(divisor) != 0:
-#             return int(value) / int(divisor)
-#         else:
-#             return int(value)
-#     elif type(value) =="<class 'str'>":
-#         if int(divisor) != 0:
-#             return int(value) / int(divisor)
-#         else:
-#             return int(value)
 
+# read data file of expression values per sample per transcript
+# not all transcripts are expressed in each sample
+# returns the matrix
+# normalizes the expression values per transcript per sample
+# over number of transcripts per sample
+#
+# in addition returns number of transcripts per sample (dict of lists)
 def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
     sample_expressedfeature_or_transcript_expressionvalues_matrix: dict = {}
     sample_identifier_list: list[str] = []
@@ -42,8 +32,10 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
         for featureortranscriptrow in rows:
             if featurecounter != 0:
                 for samplecounter in range(1, len(sample_identifier_list)):
-                    if sample_identifier_list[samplecounter] not in meanexpression_per_sample_for_all_features_or_transcripts.keys():
-                        meanexpression_per_sample_for_all_features_or_transcripts[sample_identifier_list[samplecounter]] = 0
+                    if sample_identifier_list[
+                        samplecounter] not in meanexpression_per_sample_for_all_features_or_transcripts.keys():
+                        meanexpression_per_sample_for_all_features_or_transcripts[
+                            sample_identifier_list[samplecounter]] = 0
                     if sample_identifier_list[
                         samplecounter] not in expressedtranscriptspersample_sampletotranscriptassoc.keys():
                         expressedtranscriptspersample_sampletotranscriptassoc[
@@ -52,7 +44,8 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
                     # add abundance measures for each transcript
                     if int(featureortranscriptrow[1:][samplecounter]) != 0:
                         meanexpression_per_sample_for_all_features_or_transcripts[
-                            sample_identifier_list[samplecounter]] = meanexpression_per_sample_for_all_features_or_transcripts.get(
+                            sample_identifier_list[
+                                samplecounter]] = meanexpression_per_sample_for_all_features_or_transcripts.get(
                             sample_identifier_list[samplecounter]) + int(featureortranscriptrow[1:][samplecounter])
 
                         # Add expressed transcripts/ features id for each sample
@@ -74,7 +67,9 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
             featurecounter = featurecounter + 1
 
         # normalize over number of expressed transcripts / features per sample
-        meanexpression_per_sample_for_all_features_or_transcripts: dict = {k: normalize(v, len(expressedtranscriptspersample_sampletotranscriptassoc.get(k))) for k, v in meanexpression_per_sample_for_all_features_or_transcripts.items()}
+        meanexpression_per_sample_for_all_features_or_transcripts: dict = {
+            k: normalize(v, len(expressedtranscriptspersample_sampletotranscriptassoc.get(k))) for k, v in
+            meanexpression_per_sample_for_all_features_or_transcripts.items()}
 
         meanexpression_per_sample_for_all_features_or_transcripts_sorted = dict(
             sorted(meanexpression_per_sample_for_all_features_or_transcripts.items(),
@@ -82,4 +77,6 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
                    reverse=True))
 
         ###########################################################################
-        return sample_expressedfeature_or_transcript_expressionvalues_matrix, meanexpression_per_sample_for_all_features_or_transcripts_sorted, expressedtranscriptspersample_sampletotranscriptassoc
+        return sample_expressedfeature_or_transcript_expressionvalues_matrix, \
+               meanexpression_per_sample_for_all_features_or_transcripts_sorted, \
+               expressedtranscriptspersample_sampletotranscriptassoc

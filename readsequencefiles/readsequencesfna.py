@@ -1,9 +1,12 @@
 # Author Lalitha Viswanathan
 # Read fna file
 # Gene Abundance detection (Find most abundantly expressed genes)
+from datanormalization.normalizeovermaxvalue import normalizeovermaximum
 from readdatafile.readdatafile import normalize
 
-
+# Author: Lalitha Viswanathan
+# Read sequences from fna File
+# and normalize sequence length over max length
 def readfnafile(sequencesfilename: str):
     sequencedict: dict = {}
     header: str
@@ -18,7 +21,6 @@ def readfnafile(sequencesfilename: str):
             else:
                 sequencedict[header] = line
                 sampleid_to_length_association[sampleid] = len(line)
-    maxcount = max(sampleid_to_length_association.values())
-    sampleid_to_length_association_normalizedovermaxlength = {k: normalize(v, maxcount) for k, v in sampleid_to_length_association.items()}
+    sampleid_to_length_association_normalizedovermaxlength = normalizeovermaximum(sampleid_to_length_association)
     return sequencedict, sampleid_to_length_association_normalizedovermaxlength
 ###########################################################################

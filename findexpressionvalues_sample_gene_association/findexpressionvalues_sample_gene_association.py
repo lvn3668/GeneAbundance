@@ -1,5 +1,16 @@
-def findexpressionvalues_gene_sample_association(subjects_treatedwithdrugs_sample_association: dict, sample_to_expressedtranscripts_association: dict,
-                                                 transcript_to_gene_association: dict, meanexpression_per_sample_for_all_features_or_transcripts_sorted: dict):
+# Author: Lalitha Viswanathan
+# For Inputs
+# subjects to yes/no-(treated with drugs)-samples association
+# sample to transcripts-per-sample
+# transcripts to gene
+# mean expression / abundance for each transcript
+# returns dict of lists
+# key is the gene
+# values are list of expression values per transcript for all transcripts associated with that gene
+def findexpressionvalues_gene_sample_association(subjects_treatedwithdrugs_sample_association: dict,
+                                                 sample_to_expressedtranscripts_association: dict,
+                                                 transcript_to_gene_association: dict,
+                                                 meanexpression_per_sample_for_all_features_or_transcripts_sorted: dict):
 
 
     expressionvalues_subject_drugtreatment_sampleid_transcript_gene: dict = {}

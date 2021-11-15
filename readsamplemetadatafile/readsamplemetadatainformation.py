@@ -6,9 +6,9 @@
 import json
 from typing import Any, Generator
 
-from readdatafile.readdatafile import normalize
+from datanormalization.normalizeovermaxvalue import normalizeovermaximum
 
-
+# Read sample metadata
 def readsamplemetadatainformation(samplesfilename: str,
                                   sample_expressedfeature_or_transcript_expressionvalues_matrix: dict) -> tuple[
     dict, dict, dict, list[str], dict]:
@@ -66,7 +66,9 @@ def readsamplemetadatainformation(samplesfilename: str,
             samplerowcounter = samplerowcounter + 1
 
     print(len(sampleid_to_dayssinceexperimentstarted_association.values()))
-    maxcount = max(sampleid_to_dayssinceexperimentstarted_association.values())
-    sampleid_to_dayssinceexperimentstarted_normalized = {k: normalize(v, maxcount) for k, v in sampleid_to_dayssinceexperimentstarted_association.items()}
-    return sample_expressedfeature_or_transcript_expressionvalues_matrix, samplid_to_subject_association, subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, sampleid_to_dayssinceexperimentstarted_normalized
+    sampleid_to_dayssinceexperimentstarted_normalized = normalizeovermaximum(sampleid_to_dayssinceexperimentstarted_association)
+
+    return sample_expressedfeature_or_transcript_expressionvalues_matrix, samplid_to_subject_association, \
+           subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, \
+           sampleid_to_dayssinceexperimentstarted_normalized
 ##################################################################################################
