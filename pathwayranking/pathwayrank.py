@@ -29,7 +29,6 @@ def pathwayrank(pathway_to_gene_association: dict, pathway_to_module_nummodulesp
     ###################################################################################################
     print(json.dumps(pathway_to_numgenes_normalized, sort_keys=True, indent=2))
     print(json.dumps(pathway_to_nummodules_normalized, sort_keys=True, indent=2))
-    print(" type of pathay num modules list ", type(pathway_to_nummodules_normalized.values()))
 
     ###################################################################################################
     # Check for normality of data
@@ -41,9 +40,9 @@ def pathwayrank(pathway_to_gene_association: dict, pathway_to_module_nummodulesp
     if normality_pathwaymods is True and normality_pathwaygenes is True:
         dataforfindingcovariance: list[tuple[Any, Any]] = list(
             zip(list(pathway_to_nummodules_normalized.values()), list(pathway_to_numgenes_normalized.values())))
-        print(dataforfindingcovariance)
+
         covariance_between_numberofmodules_in_pathway_to_numberofgenes = numpy.cov(dataforfindingcovariance)
-        print(covariance_between_numberofmodules_in_pathway_to_numberofgenes)
+
         # loop through the covariance matrix and add the weights
         # This weighted sum is presently used to rank pathways
         pathwaycounter: int
