@@ -11,7 +11,7 @@ from datanormalization.normalizeovermaxvalue import normalizeovermaximum
 # Read sample metadata
 def readsamplemetadatainformation(samplesfilename: str,
                                   sample_expressedfeature_or_transcript_expressionvalues_matrix: dict) -> tuple[
-    dict, dict, dict, list[str], dict]:
+    dict, dict, dict, list[str], dict, dict]:
     """
 
     :rtype: object
@@ -27,6 +27,7 @@ def readsamplemetadatainformation(samplesfilename: str,
     subjects_treatedwithdrugs_to_sample_association: dict = {}
     samplid_to_subject_association: dict = {}
     sampleid_to_dayssinceexperimentstarted_association: dict = {}
+    sample_to_treatedwithdrugs_association: dict = {}
     with open(samplesfilename) as samplefile:
         samplemetadatarows: Generator[list[str], Any, None] = (line.split('\t') for line in samplefile)
         for persamplemetadatainformation in samplemetadatarows:
@@ -51,6 +52,8 @@ def readsamplemetadatainformation(samplesfilename: str,
                             # 2d hash created with yes/no value for treated-with-drugs field
                             subjects_treatedwithdrugs_to_sample_association[persamplemetadatainformation[1:][counter]][persamplemetadatainformation[1:][counter + 1]].append(
                                 persamplemetadatainformation[0])
+                            sample_to_treatedwithdrugs_association[persamplemetadatainformation[0]] = \
+                            persamplemetadatainformation[1:][counter + 1]
                             # create association of sample to days since experiment started
                             sampleid_to_dayssinceexperimentstarted_association[persamplemetadatainformation[0]] = persamplemetadatainformation[1:][counter+2]
                             # create association of sample id and type of subject (subject 1 / subject 2)
@@ -65,10 +68,10 @@ def readsamplemetadatainformation(samplesfilename: str,
                     samplefileheaderlist.append(field)
             samplerowcounter = samplerowcounter + 1
 
-    print(len(sampleid_to_dayssinceexperimentstarted_association.values()))
     sampleid_to_dayssinceexperimentstarted_normalized = normalizeovermaximum(sampleid_to_dayssinceexperimentstarted_association)
+
 
     return sample_expressedfeature_or_transcript_expressionvalues_matrix, samplid_to_subject_association, \
            subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, \
-           sampleid_to_dayssinceexperimentstarted_normalized
+           sampleid_to_dayssinceexperimentstarted_normalized, sample_to_treatedwithdrugs_association
 ##################################################################################################

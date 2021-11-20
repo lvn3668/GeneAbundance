@@ -43,6 +43,8 @@ def normalizeexpressionmeasures(gene: str, geneid_expressionvalues: dict,
         sum_transcript_confidence_measure: float
         sum_transcript_confidence_measure = 0
         for transcript in gene_to_transcript_or_feature_association.get(gene):
+
+
             # sum all the transcript confidence measures
             sum_transcript_confidence_measure = 0
             if transcript in transcript_or_feature_to_confidence_association.keys():
@@ -100,4 +102,6 @@ def normalizeexpressionmeasures(gene: str, geneid_expressionvalues: dict,
         if sumnormalizedsequencelengths != 0:
             expressionvaluesnormalizedoverexpressedfeatures_or_transcripts = expressionvaluesnormalizedoverexpressedfeatures_or_transcripts / sumnormalizedsequencelengths
         listofabundancevals.append(expressionvaluesnormalizedoverexpressedfeatures_or_transcripts)
+
+    # return dict of transcript id and abundance vals
     return listofabundancevals

@@ -19,16 +19,16 @@ def pathwayrank(pathway_to_gene_association: dict, pathway_to_module_nummodulesp
         pathway_to_gene_association.items()}
     ###################################################################################################
     # Normalize number of modules per pathway
-    for k, v in pathway_to_module_nummodulesperpathway_association.items():
-        print(" Key (Pathway) ", k, " Number of modules ",
-              len(pathway_to_module_nummodulesperpathway_association.get(k)))
+    #for k, v in pathway_to_module_nummodulesperpathway_association.items():
+        #print(" Key (Pathway) ", k, " Number of modules ",
+        #      len(pathway_to_module_nummodulesperpathway_association.get(k)))
     pathway_to_nummodules_normalized: dict = {
         k: normalize(len(v), max(map(len, pathway_to_module_nummodulesperpathway_association.values()))) for k, v in
         pathway_to_module_nummodulesperpathway_association.items()}
 
     ###################################################################################################
-    print(json.dumps(pathway_to_numgenes_normalized, sort_keys=True, indent=2))
-    print(json.dumps(pathway_to_nummodules_normalized, sort_keys=True, indent=2))
+    #print(json.dumps(pathway_to_numgenes_normalized, sort_keys=True, indent=2))
+    #print(json.dumps(pathway_to_nummodules_normalized, sort_keys=True, indent=2))
 
     ###################################################################################################
     # Check for normality of data
@@ -65,9 +65,9 @@ def pathwayrank(pathway_to_gene_association: dict, pathway_to_module_nummodulesp
 
         # Rank pathways by weighted sum
         pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes = dict(sorted(pathwayranks_name_to_weighted_gene_correlation_sum.items(), key=lambda item: item[1]))
-        print(pathwayranks_name_to_weighted_gene_correlation_sum)
-        print('Dictionary in descending order by value : ',
-              pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes)
-        print(type(pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes))
+        #print(pathwayranks_name_to_weighted_gene_correlation_sum)
+        #print('Dictionary in descending order by value : ',
+        #      pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes)
+        #print(type(pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes))
         ###################################################################################################
     return pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes

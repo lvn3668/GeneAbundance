@@ -47,6 +47,6 @@ transcript_or_feature_to_confidence_association: dict,
         print("Pvalue confidence normality confidence", pval_confidence, normality_confidence)
         print("Pvalue count normality count", pval_count, normality_count)
         covariance_between_seqlength_to_daysinpool = None
-        exit(1)
+
 
     return covariance_between_seqlength_to_daysinpool

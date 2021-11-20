@@ -17,8 +17,8 @@ def rankgenesbasedonpathways(geneid_expressionvalues: dict, gene_to_pathway_asso
             genesrankedbypathwayexpression[gene] = 0
         pathwayrank: float = 0
         for pathway in set(gene_to_pathway_association.get(gene)):
-            print("Pathway associated with gene *", pathway.strip(), "* ",
-              pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes.get(pathway.strip()))
+            #print("Pathway associated with gene *", pathway.strip(), "* ",
+              #pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes.get(pathway.strip()))
             pathwayrank += pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes.get(pathway.strip())
         genesrankedbypathwayexpression[gene] = pathwayrank
     return genesrankedbypathwayexpression

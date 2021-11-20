@@ -16,7 +16,7 @@ def normalize(value, divisor):
 # over number of transcripts per sample
 #
 # in addition returns number of transcripts per sample (dict of lists)
-def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
+def readsample_features_expressionvalues(expressionvaluesfilename: str):
     sample_expressedfeature_or_transcript_expressionvalues_matrix: dict = {}
     sample_identifier_list: list[str] = []
     featurecounter: int
@@ -24,6 +24,7 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
     meanexpression_per_sample_for_all_features_or_transcripts: dict = {}
     numberoffeatures: int
     expressedtranscriptspersample_sampletotranscriptassoc: dict = {}
+    sample_transcript_expressionval_association: dict = {}
     with open(expressionvaluesfilename) as datafile:
         # split for each sample id, abundence per feature
         rows = (line.split('\t') for line in datafile)
@@ -32,14 +33,14 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
         for featureortranscriptrow in rows:
             if featurecounter != 0:
                 for samplecounter in range(1, len(sample_identifier_list)):
-                    if sample_identifier_list[
-                        samplecounter] not in meanexpression_per_sample_for_all_features_or_transcripts.keys():
+                    if sample_identifier_list[samplecounter] not in meanexpression_per_sample_for_all_features_or_transcripts.keys():
                         meanexpression_per_sample_for_all_features_or_transcripts[
                             sample_identifier_list[samplecounter]] = 0
                     if sample_identifier_list[
                         samplecounter] not in expressedtranscriptspersample_sampletotranscriptassoc.keys():
                         expressedtranscriptspersample_sampletotranscriptassoc[
                             sample_identifier_list[samplecounter]] = []
+                        sample_transcript_expressionval_association[sample_identifier_list[samplecounter]] = []
 
                     # add abundance measures for each transcript
                     if int(featureortranscriptrow[1:][samplecounter]) != 0:
@@ -47,10 +48,11 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
                             sample_identifier_list[
                                 samplecounter]] = meanexpression_per_sample_for_all_features_or_transcripts.get(
                             sample_identifier_list[samplecounter]) + int(featureortranscriptrow[1:][samplecounter])
-
                         # Add expressed transcripts/ features id for each sample
                         expressedtranscriptspersample_sampletotranscriptassoc[
                             sample_identifier_list[samplecounter]].append(featureortranscriptrow[0])
+                        sample_transcript_expressionval_association[sample_identifier_list[samplecounter]].append((featureortranscriptrow[0], int(featureortranscriptrow[1:][samplecounter])))
+
                 loopingcounter: int
                 for loopingcounter in range(1, len(sample_identifier_list)):
                     # first index is the sample id from the header
@@ -77,6 +79,7 @@ def readsampletofeatureexpressionvalues(expressionvaluesfilename: str):
                    reverse=True))
 
         ###########################################################################
+
         return sample_expressedfeature_or_transcript_expressionvalues_matrix, \
                meanexpression_per_sample_for_all_features_or_transcripts_sorted, \
-               expressedtranscriptspersample_sampletotranscriptassoc
+               expressedtranscriptspersample_sampletotranscriptassoc, sample_transcript_expressionval_association

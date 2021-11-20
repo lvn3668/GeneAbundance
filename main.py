@@ -19,7 +19,6 @@
 # The first column named `_id` can be used as index.**"
 
 import argparse
-import re
 # "Imagine a grocery store with multiple aisles and multiple people waiting in each line.
 # You quickly look at the items in each customers basket and know exactly how long it will take them to check out.
 # If each customer always chooses the shortest line, calculate how long it will take for all customers to go through checkout.
@@ -28,9 +27,8 @@ import re
 # Write a method to reverse translate the string “ACCTGGCCGTACCT”.
 # Results should be “AGGTACGGCCAGGT”.
 # Add a validation step to show that the results is what expected.\n",
-import numpy
-from sklearn.preprocessing import LabelEncoder
 
+from sklearn.preprocessing import LabelEncoder
 from associationbetweenfeatureconfidenceandcount.associationbetweenconfidenceandcount import \
     findassociationbetweentranscriptconfidenceandtranscriptcount
 from associationbetweenlengthanddaysinpool.associationbetweenlengthanddaysinpool import \
@@ -39,17 +37,23 @@ from checkfornumberofperfectsquares.countperfectsquares import findperfectsquare
 from findgenesofsignificancebasedonabundancemeasures.findgenesofsignificance import \
     readmetadataaboutsamplesfeaturesandexpressionvalues
 from genesrankedbypathwayrank.generankingbasedonpathwayrank import rankgenesbasedonpathways
+from genexpressiondataimputation.imputegeneexpressiondata import imputegenexpressiondata
 from normalizeexpressionvalues.normalizeexpressionmeasures import normalizeexpressionmeasures
 from reversecomplementDNA.reversecomplementDNA import reversecomplementDNA, validationofreversecomplement
-from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import KFold
 from sklearn.metrics import r2_score
-import miceforest as mf
-from sklearn.datasets import load_iris
-import pandas as pd
 import numpy as np
+from sklearn import metrics
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.datasets import load_iris
+import rpy2
+from scipy.stats import beta
+from sortedcontainers import SortedList
 
+
+# Load data and introduce missing values
 
 # Explore the `samples` metadata. Calculate how many sequenced samples are available
 # for each subject (\"Subject\" column) across treatment usage (\"Treated_with_drug\" column).
@@ -61,6 +65,7 @@ import numpy as np
 # The Gene label can be found in the `features` dataframe.**"
 
 def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfilename: str, sequencesfilename: str):
+    expressedtranscriptspersample_sampletotranscriptassoc: dict
     sequence_header_to_fnasequence_association, sampleid_to_length_association_normalizedoverrmaxlength, \
     sample_expressedfeature_or_transcript_expressionvalues_matrix, \
     meanexpression_per_sample_for_all_features_or_transcripts_sorted, \
@@ -68,28 +73,29 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
     samplid_to_subject_association, \
     subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, \
     sampleid_to_dayssinceexperimentstarted_normalized, features_metadata, transcript_or_feature_to_gene_association, \
-    transcript_or_feature_to_confidence_association, \
-    transcript_or_feature_to_count_association, gene_to_transcript_or_feature_association, \
+    transcript_or_feature_to_confidence_normalized_association, \
+    transcript_or_feature_to_count_normalized_association, gene_to_transcript_or_feature_association, \
     pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes, \
     gene_to_pathway_association, pathway_to_gene_association, sample_to_gene_association, gene_to_sample_association, \
-    expressionvalues_subject_drugtreatment_sampleid_transcript_gene, geneid_expressionvalues = readmetadataaboutsamplesfeaturesandexpressionvalues(
+    expressionvalues_subject_drugtreatment_sampleid_transcript_gene, geneid_expressionvalues, sample_treatedwithdrugs_association, \
+    sample_transcript_expressionval_association, geneid_to_transcriptexprvals_with_featureids_association = readmetadataaboutsamplesfeaturesandexpressionvalues(
         datafilename, featuresfilename, samplesfilename, sequencesfilename)
 
     genesrankedbypathwayexpression = rankgenesbasedonpathways(geneid_expressionvalues,
                                                               gene_to_pathway_association,
                                                               pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes)
-    import json
-    print(json.dumps(genesrankedbypathwayexpression, sort_keys=True, indent=2))
-    print("After printing gene list ranked by pathway expression NOT normalized ( num genes num modules correlated)")
+
     genesmissingpathwayassociations: list[str] = []
     for gene in geneid_expressionvalues.keys():
         # Multiply by confidence to normalize
         # Use counts to normalize
+        ####################################
+        # Also return gene - transcript - measure
         geneid_expressionvalues[gene] = normalizeexpressionmeasures(gene, geneid_expressionvalues,
                                                                     genesrankedbypathwayexpression,
                                                                     gene_to_transcript_or_feature_association,
-                                                                    transcript_or_feature_to_confidence_association,
-                                                                    transcript_or_feature_to_count_association,
+                                                                    transcript_or_feature_to_confidence_normalized_association,
+                                                                    transcript_or_feature_to_count_normalized_association,
                                                                     gene_to_sample_association,
                                                                     sampleid_to_dayssinceexperimentstarted_normalized,
                                                                     sampleid_to_length_association_normalizedoverrmaxlength,
@@ -106,31 +112,55 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
         # Sample length from fna file
         # check for correlation between sample length and number of expressed transcripts / features
         # assuming positive correlation
-
         # normalize over sample length (gene abundance can come from multiple transcripts from different samples)
-
-        ## Pathway ranking (done)
+        # Pathway ranking (done)
         # build pathway module gene association
         # A gene can be implicated in multiple pathways and a pathway should have mutiple modules
         # A gene from a well expressed pathway -> HOW to normalize
 
         # to check: functional association and gene abundance expression
 
-        print("Gene ", gene, " Relative abundances ", geneid_expressionvalues.get(gene))
+        # 11/19
+        # Impute sequence length using correlation between length and num expressed transcripts / features
+        # print("Gene ", gene, " Relative abundances ", geneid_expressionvalues.get(gene))
 
     # Determine the top 10 genes with the highest mean relative abundance found across both subjects.
     # The Gene label can be found in the `features` dataframe.**"
     ##################################################################################################
 
-    return sequence_header_to_fnasequence_association, features_metadata, \
-           sample_expressedfeature_or_transcript_expressionvalues_matrix, \
-           samples_with_missing_expression_values, subjects_treatedwithdrugs_to_sample_association, \
-           sampleid_to_length_association_normalizedoverrmaxlength, \
-           sampleid_to_dayssinceexperimentstarted_normalized, geneid_expressionvalues, \
-           transcript_or_feature_to_confidence_association, \
-            transcript_or_feature_to_count_association
+    ##############################################
+    # gene expression values is 1: many
+    # transcript to gene sanity check should be 1: 1
+    # gene to trancript sanit check should be 1: many
+    #
+    combined_dict: dict = {}
+    for gene in geneid_expressionvalues:
+        if gene not in combined_dict.keys():
+            combined_dict[gene] = {}
+        combined_dict[gene]["NormalizedExprVals"] = geneid_expressionvalues.get(gene)
+        combined_dict[gene]["NormalizedPathwayRank"] = genesrankedbypathwayexpression.get(gene)
+        combined_dict[gene]["NormalizedSampleLength"] = []
+        combined_dict[gene]["NormalizedDaysInPool"] = []
+        for s in gene_to_sample_association.get(gene):
+            combined_dict[gene]["NormalizedSampleLength"].append(
+                sampleid_to_length_association_normalizedoverrmaxlength.get(s))
+            combined_dict[gene]["NormalizedDaysInPool"].append(sampleid_to_dayssinceexperimentstarted_normalized.get(s))
+            if expressedtranscriptspersample_sampletotranscriptassoc.get(s) is not None:
+                combined_dict[gene]["NormalizedConfidence"] = []
+                combined_dict[gene]["NormalizedCount"] = []
+                combined_dict[gene]["TreatedWithDrugs"] = None
+                for t in expressedtranscriptspersample_sampletotranscriptassoc.get(s):
+                    combined_dict[gene]["NormalizedConfidence"].append(
+                        transcript_or_feature_to_confidence_normalized_association.get(t))
+                    combined_dict[gene]["NormalizedCount"].append(
+                        transcript_or_feature_to_count_normalized_association.get(t))
+                combined_dict[gene]["TreatedWithDrugs"] = sample_treatedwithdrugs_association.get(s)
+    ##############################################
+    # Dump of combined dict
+    import json
+    print(json.dumps(combined_dict, sort_keys=True, indent=2))
 
-
+    return sequence_header_to_fnasequence_association, features_metadata, sample_expressedfeature_or_transcript_expressionvalues_matrix, samples_with_missing_expression_values, subjects_treatedwithdrugs_to_sample_association, sampleid_to_length_association_normalizedoverrmaxlength, sampleid_to_dayssinceexperimentstarted_normalized, geneid_expressionvalues, transcript_or_feature_to_confidence_normalized_association, transcript_or_feature_to_count_normalized_association
 
 
 def print_hi(name):
@@ -180,70 +210,53 @@ if __name__ == '__main__':
         sampleid_to_length_association_normalizedoverrmaxlength, sampleid_to_dayssinceexperimentstarted_normalized, \
         geneid_expressionvalues, transcript_or_feature_to_confidence_association, \
         transcript_or_feature_to_count_association = findgenesofsignificance(
-                datafilename, featuresfilename, samplesfilename, sequencesfilename)
+            datafilename, featuresfilename, samplesfilename, sequencesfilename)
         # 8 samples have both days in pool and seq length
         # for those 8 samples,
         findassociationbetweensequencelengthanddaysinpool(sampleid_to_length_association_normalizedoverrmaxlength,
-        sampleid_to_dayssinceexperimentstarted_normalized)
+                                                          sampleid_to_dayssinceexperimentstarted_normalized)  # positive correlation
         findassociationbetweentranscriptconfidenceandtranscriptcount(transcript_or_feature_to_confidence_association,
-        transcript_or_feature_to_count_association)
-        print("Exit Before imputation")
-        exit(1)
-        from scipy.stats import beta
-        #a, b = 1., 2.
-        #x = beta.rvs(a, b, size=1000)
-        #a1, b1, loc1, scale1 = beta.fit(x)
-        #print("******* MLE fit ", a1, b1, loc1, scale1)
-        # convert gene transcript expression vals to panda df
-        df_genettranscript_exprvals = pd.DataFrame.from_dict(geneid_expressionvalues, orient='index').T
-        print(df_genettranscript_exprvals)
-        imp = SimpleImputer(missing_values=np.NaN, strategy='mean')
-        imp.fit(df_genettranscript_exprvals)
-        df_genettranscript_exprvals = imp.transform(df_genettranscript_exprvals)
-        print(imp.transform(df_genettranscript_exprvals))
-        np.random.seed(42)
-        kf = KFold(n_splits=4)
-        scores = []
-        for train_index, test_index in kf.split(df_genettranscript_exprvals):
-            X_train, X_test = df_genettranscript_exprvals[train_index], df_genettranscript_exprvals[test_index]
-            y_train, y_test = df_genettranscript_exprvals[train_index], df_genettranscript_exprvals[test_index]
+                                                                     transcript_or_feature_to_count_association)
 
-            clf = LinearRegression()
-            clf.fit(X_train, y_train)
-            y_test_pred = clf.predict(X_test)
-            scores.append(r2_score(y_test, y_test_pred))
+        # convert gene transcript expression vals to panda df
+        df_genetranscript_exprvals = imputegenexpressiondata(geneid_expressionvalues)
+        np.random.seed(42)
+        # kf = KFold(n_splits=8)
+        scores = []
+        # for train_index, test_index in kf.split(df_genetranscript_exprvals):
+
+        # X_train, X_test = df_genetranscript_exprvals[train_index], df_genetranscript_exprvals[test_index]
+        # y_train, y_test = df_genetranscript_exprvals[train_index], df_genetranscript_exprvals[test_index]
+        # clf = LinearRegression()
+        # clf.fit(X_train, y_train)
+        # y_test_pred = clf.predict(X_test)
+        # scores.append(r2_score(y_test, y_test_pred))
+
+        # test_size = 0.3
+        # X_train, X_test, y_train, y_test = train_test_split(df_genetranscript_exprvals[train_index],
+        # df_genetranscript_exprvals[test_index])
+        # print(" training data ", X_train)
+        # print(" y axis training data ", y_train)
+        # lr = LogisticRegression()
+        # lr.fit(X_train, y_train)
+        # print("After lr.fit")
+        # pred = lr.predict(X_test)
+        # print(metrics.accuracy_score(pred, y_test))
 
         print("Mice forest algorithm scores ", scores)
+        # le = LabelEncoder()
 
-        # importing the dataset into kaggle
-        df = pd.read_csv("data/test.csv")
-        print(df.keys())
+        import rpy2.robjects as robjects
 
-        # Load data and introduce missing values
-        from sklearn import metrics
-        from sklearn.model_selection import train_test_split
+        r = robjects.r
 
-        le = LabelEncoder()
-        df['Sex'] = le.fit_transform(df['Sex'])
-        newdf = df
+        m = r.matrix(r.rnorm(100), ncol=5)
+        pca = r.princomp(m)
+        r.plot(pca, main="Eigen values")
+        r.biplot(pca, main="biplot")
 
-        y = df['SibSp']
-        print(y)
-
-        X_train, X_test, y_train, y_test = train_test_split(df, y, test_size=0.3)
-        print(" training data ", X_train)
-        print(" y axis training data ", y_train)
-        from sklearn.linear_model import LogisticRegression
-
-        lr = LogisticRegression()
-
-        lr.fit(X_train, y_train)
-        print("After lr.fit")
-        pred = lr.predict(X_test)
-
-        print(metrics.accuracy_score(pred, y_test))
         exit(1)
 
     finally:
-        #print(list(checkforvalidparentheses("{([((()])))[][[()]]}")))
+        # print(list(checkforvalidparentheses("{([((()])))[][[()]]}")))
         print("After printing the first 15 lines")
