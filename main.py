@@ -34,10 +34,10 @@ from associationbetweenfeatureconfidenceandcount.associationbetweenconfidenceand
 from associationbetweenlengthanddaysinpool.associationbetweenlengthanddaysinpool import \
     findassociationbetweensequencelengthanddaysinpool
 from checkfornumberofperfectsquares.countperfectsquares import findperfectsquares
-from findgenesofsignificancebasedonabundancemeasures.findgenesofsignificance import \
+from read_sample_feature_expr_metadata.read_sample_feature_expression_values import \
     readmetadataaboutsamplesfeaturesandexpressionvalues
 from genesrankedbypathwayrank.generankingbasedonpathwayrank import rankgenesbasedonpathways
-from genexpressiondataimputation.imputegeneexpressiondata import imputegenexpressiondata
+from genexpressiondataimputation.imputegeneexpressiondata_using_mean import imputegenexpressiondata_using_mean
 from normalizeexpressionvalues.normalizeexpressionmeasures import normalizeexpressionmeasures
 from reversecomplementDNA.reversecomplementDNA import reversecomplementDNA, validationofreversecomplement
 from sklearn.linear_model import LinearRegression
@@ -65,41 +65,42 @@ from sortedcontainers import SortedList
 # The Gene label can be found in the `features` dataframe.**"
 
 def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfilename: str, sequencesfilename: str):
-    expressedtranscriptspersample_sampletotranscriptassoc: dict
     sequence_header_to_fnasequence_association, sampleid_to_length_association_normalizedoverrmaxlength, \
-    sample_expressedfeature_or_transcript_expressionvalues_matrix, \
+    sample_expressedfeature_or_transcript_expressionvalues_matrix_allvals, \
     meanexpression_per_sample_for_all_features_or_transcripts_sorted, \
-    expressedtranscriptspersample_sampletotranscriptassoc, sample_expressedfeature_or_transcript_expressionvalues_matrix, \
+    expressedtranscriptspersample_sampletotranscriptassoc_noexprvals, persample_expressed_transcript_to_expressionval_association, \
+    pertranscript_sampleidentifier_expressionvals_across_samples, \
     samplid_to_subject_association, \
     subjects_treatedwithdrugs_to_sample_association, samples_with_missing_expression_values, \
-    sampleid_to_dayssinceexperimentstarted_normalized, features_metadata, transcript_or_feature_to_gene_association, \
-    transcript_or_feature_to_confidence_normalized_association, \
+    sampleid_to_dayssinceexperimentstarted_normalized, sample_treatedwithdrugs_association, features_metadata, \
+    transcript_or_feature_to_gene_association, transcript_or_feature_to_confidence_normalized_association, \
     transcript_or_feature_to_count_normalized_association, gene_to_transcript_or_feature_association, \
     pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes, \
-    gene_to_pathway_association, pathway_to_gene_association, sample_to_gene_association, gene_to_sample_association, \
-    expressionvalues_subject_drugtreatment_sampleid_transcript_gene, geneid_expressionvalues, sample_treatedwithdrugs_association, \
-    sample_transcript_expressionval_association, geneid_to_transcriptexprvals_with_featureids_association = readmetadataaboutsamplesfeaturesandexpressionvalues(
+    gene_to_pathway_association, pathway_to_gene_association, sample_to_gene_association, \
+    gene_to_sample_association, geneid_to_all_transcriptexprvals_acrosssamples_association = \
+        readmetadataaboutsamplesfeaturesandexpressionvalues(
         datafilename, featuresfilename, samplesfilename, sequencesfilename)
 
-    genesrankedbypathwayexpression = rankgenesbasedonpathways(geneid_expressionvalues,
+    genesrankedbypathwayexpression = rankgenesbasedonpathways(gene_to_transcript_or_feature_association,
                                                               gene_to_pathway_association,
                                                               pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes)
 
+    print(gene_to_transcript_or_feature_association.keys())
+
     genesmissingpathwayassociations: list[str] = []
-    for gene in geneid_expressionvalues.keys():
+    for gene in gene_to_transcript_or_feature_association.keys():
         # Multiply by confidence to normalize
         # Use counts to normalize
         ####################################
         # Also return gene - transcript - measure
-        geneid_expressionvalues[gene] = normalizeexpressionmeasures(gene, geneid_expressionvalues,
-                                                                    genesrankedbypathwayexpression,
-                                                                    gene_to_transcript_or_feature_association,
-                                                                    transcript_or_feature_to_confidence_normalized_association,
-                                                                    transcript_or_feature_to_count_normalized_association,
-                                                                    gene_to_sample_association,
-                                                                    sampleid_to_dayssinceexperimentstarted_normalized,
-                                                                    sampleid_to_length_association_normalizedoverrmaxlength,
-                                                                    genesmissingpathwayassociations)
+        # dict of transcript id and expression values (un-normalized)
+        transcriptandexprmeasure_unnormalized: dict = geneid_to_all_transcriptexprvals_acrosssamples_association.get(gene)
+        # return value from function is normalized
+        geneid_to_all_transcriptexprvals_acrosssamples_association[gene] = \
+            normalizeexpressionmeasures(gene, transcriptandexprmeasure_unnormalized,
+                                  sampleid_to_dayssinceexperimentstarted_normalized,
+                                  sampleid_to_length_association_normalizedoverrmaxlength,
+                                        genesrankedbypathwayexpression)
 
         # TBD:
         # 1. Use numpy and panda to find correlations between
@@ -122,7 +123,9 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
 
         # 11/19
         # Impute sequence length using correlation between length and num expressed transcripts / features
-        # print("Gene ", gene, " Relative abundances ", geneid_expressionvalues.get(gene))
+        print("Gene ", gene,
+              " Sorted dict of transcripts and expr vals ", transcriptandexprmeasure_unnormalized)
+        print("Gene ", gene, " Relative abundances ", geneid_to_all_transcriptexprvals_acrosssamples_association.get(gene))
 
     # Determine the top 10 genes with the highest mean relative abundance found across both subjects.
     # The Gene label can be found in the `features` dataframe.**"
@@ -134,10 +137,10 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
     # gene to trancript sanit check should be 1: many
     #
     combined_dict: dict = {}
-    for gene in geneid_expressionvalues:
+    for gene in gene_to_transcript_or_feature_association.keys():
         if gene not in combined_dict.keys():
             combined_dict[gene] = {}
-        combined_dict[gene]["NormalizedExprVals"] = geneid_expressionvalues.get(gene)
+        combined_dict[gene]["NormalizedExprVals"] = geneid_to_all_transcriptexprvals_acrosssamples_association.get(gene)
         combined_dict[gene]["NormalizedPathwayRank"] = genesrankedbypathwayexpression.get(gene)
         combined_dict[gene]["NormalizedSampleLength"] = []
         combined_dict[gene]["NormalizedDaysInPool"] = []
@@ -145,22 +148,28 @@ def findgenesofsignificance(datafilename: str, featuresfilename: str, samplesfil
             combined_dict[gene]["NormalizedSampleLength"].append(
                 sampleid_to_length_association_normalizedoverrmaxlength.get(s))
             combined_dict[gene]["NormalizedDaysInPool"].append(sampleid_to_dayssinceexperimentstarted_normalized.get(s))
-            if expressedtranscriptspersample_sampletotranscriptassoc.get(s) is not None:
+            if gene_to_transcript_or_feature_association.get(s) is not None:
                 combined_dict[gene]["NormalizedConfidence"] = []
                 combined_dict[gene]["NormalizedCount"] = []
                 combined_dict[gene]["TreatedWithDrugs"] = None
-                for t in expressedtranscriptspersample_sampletotranscriptassoc.get(s):
+                for t in gene_to_transcript_or_feature_association.get(s):
                     combined_dict[gene]["NormalizedConfidence"].append(
                         transcript_or_feature_to_confidence_normalized_association.get(t))
                     combined_dict[gene]["NormalizedCount"].append(
                         transcript_or_feature_to_count_normalized_association.get(t))
                 combined_dict[gene]["TreatedWithDrugs"] = sample_treatedwithdrugs_association.get(s)
+        combined_dict[gene]["NormalizedSampleLength"] = list(set(combined_dict[gene]["NormalizedSampleLength"]))
     ##############################################
     # Dump of combined dict
     import json
     print(json.dumps(combined_dict, sort_keys=True, indent=2))
 
-    return sequence_header_to_fnasequence_association, features_metadata, sample_expressedfeature_or_transcript_expressionvalues_matrix, samples_with_missing_expression_values, subjects_treatedwithdrugs_to_sample_association, sampleid_to_length_association_normalizedoverrmaxlength, sampleid_to_dayssinceexperimentstarted_normalized, geneid_expressionvalues, transcript_or_feature_to_confidence_normalized_association, transcript_or_feature_to_count_normalized_association
+    return sequence_header_to_fnasequence_association, features_metadata, \
+           sample_expressedfeature_or_transcript_expressionvalues_matrix_allvals, samples_with_missing_expression_values, \
+           subjects_treatedwithdrugs_to_sample_association, sampleid_to_length_association_normalizedoverrmaxlength, \
+           sampleid_to_dayssinceexperimentstarted_normalized, geneid_to_all_transcriptexprvals_acrosssamples_association, \
+           transcript_or_feature_to_confidence_normalized_association, \
+           transcript_or_feature_to_count_normalized_association, combined_dict
 
 
 def print_hi(name):
@@ -185,22 +194,22 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # print(args.accumulate(args.integers))
     try:
-        with open("data/sequences.fna") as file:
-            while line := file.readline().rstrip():
-                # print(line)
-                counter = counter + 1
-                if counter == 15:
-                    break
+        #with open("data/sequences.fna") as file:
+        #    while line := file.readline().rstrip():
+        #        # print(line)
+        #        counter = counter + 1
+        #        if counter == 15:
+        #            break
 
-        print("Before calling reverse complement ")
-        DNAString = "ATGC"
-        revcomplement = reversecomplementDNA(DNAString)
-        print(validationofreversecomplement(DNAString, revcomplement))
-        print("After printing reverse complement validation")
+        #print("Before calling reverse complement ")
+        #DNAString = "ATGC"
+        #revcomplement = reversecomplementDNA(DNAString)
+        #print(validationofreversecomplement(DNAString, revcomplement))
+        #print("After printing reverse complement validation")
         print("Before finding perfect squares")
         findperfectsquares(4, 9)
         findperfectsquares(100, 1748937)
-        # findperfectsquares(1341, 74189027341)
+        #findperfectsquares(1341, 74189027341)
         datafilename = "data/data.txt"
         featuresfilename = "data/features.txt"
         samplesfilename = "data/samples.txt"
@@ -209,17 +218,18 @@ if __name__ == '__main__':
         sequencedict, featureinfodict2d, datainfodict2d, missingsamples, subjectstreatedwithdrugs, \
         sampleid_to_length_association_normalizedoverrmaxlength, sampleid_to_dayssinceexperimentstarted_normalized, \
         geneid_expressionvalues, transcript_or_feature_to_confidence_association, \
-        transcript_or_feature_to_count_association = findgenesofsignificance(
+        transcript_or_feature_to_count_association, combined_dict = findgenesofsignificance(
             datafilename, featuresfilename, samplesfilename, sequencesfilename)
         # 8 samples have both days in pool and seq length
         # for those 8 samples,
+
         findassociationbetweensequencelengthanddaysinpool(sampleid_to_length_association_normalizedoverrmaxlength,
                                                           sampleid_to_dayssinceexperimentstarted_normalized)  # positive correlation
         findassociationbetweentranscriptconfidenceandtranscriptcount(transcript_or_feature_to_confidence_association,
                                                                      transcript_or_feature_to_count_association)
-
+        exit(1)
         # convert gene transcript expression vals to panda df
-        df_genetranscript_exprvals = imputegenexpressiondata(geneid_expressionvalues)
+        df_genetranscript_exprvals = imputegenexpressiondata_using_mean(geneid_expressionvalues)
         np.random.seed(42)
         # kf = KFold(n_splits=8)
         scores = []
@@ -229,7 +239,7 @@ if __name__ == '__main__':
         # y_train, y_test = df_genetranscript_exprvals[train_index], df_genetranscript_exprvals[test_index]
         # clf = LinearRegression()
         # clf.fit(X_train, y_train)
-        # y_test_pred = clf.predict(X_test)
+        # y_test_pred = clf.predict(X_test)=-
         # scores.append(r2_score(y_test, y_test_pred))
 
         # test_size = 0.3
@@ -258,5 +268,6 @@ if __name__ == '__main__':
         exit(1)
 
     finally:
+        print("Exit ")
         # print(list(checkforvalidparentheses("{([((()])))[][[()]]}")))
-        print("After printing the first 15 lines")
+        #print("After printing the first 15 lines")

@@ -1,6 +1,7 @@
 # Author: Lalitha Viswanathan
 # Correlate samples to genes
 
+# returns sample to gene and gene to sample associations
 def find_sample_gene_association(transcript_or_feature_to_gene_association: dict,
                                  sample_to_expressed_feature_or_transcript_association: dict):
 

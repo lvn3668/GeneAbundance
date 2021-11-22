@@ -3,8 +3,8 @@
 
 import re
 from typing import TextIO
-from pathwayranking.pathwayrank import pathwayrank
-from datanormalization.normalizeovermaxvalue import normalizeovermaximum
+from pathwayranking_correln_between_num_modules_and_num_genes.pathwayranking_modules_genes_per_pathway import pathwayrank
+from datanormalization.normalizeovermaxvalue import normalize_over_maximum_value
 # read features metadata file
 # assumption of records containing all the fields  (namely id, count, confidence, pathway, gene, transcripts)
 # other records are ignored
@@ -12,7 +12,7 @@ def readfeaturesmetadatafile(featuresfilename: str) -> tuple[dict, dict, dict, d
     featurefileheaderlist: list[str] = []
     featurecounter: int
     featurecounter = 0
-    featureinfodict: dict = {}
+    featurefile_info_dict: dict = {}
     transcript_or_feature_to_gene_association: dict = {}
     transcript_or_feature_to_confidence_normalized_association: dict = {}
     transcript_or_feature_to_count_normalized_association: dict = {}
@@ -35,15 +35,15 @@ def readfeaturesmetadatafile(featuresfilename: str) -> tuple[dict, dict, dict, d
                 for counter in range(0, len(featurefileheaderlist)):
                     # print("Feature counter ", featurecounter, " row[0] ", row[0], " featurefileheaderlist[counter] ",
                     #      featurefileheaderlist[counter])
-                    # Populate the featureinfodict with feature-id and metadatafield (count / confidence / pathway / module etc.)
+                    # Populate the featurefile_info_dict with feature-id and metadatafield (count / confidence / pathway / module etc.)
                     # as inner key
                     # Thus dict entries are of the form [id][count] = [value], [id][confidence] = value etc.
                     ######################################################################
-                    if row[0] not in featureinfodict.keys():
-                        featureinfodict[row[0]] = {}
+                    if row[0] not in featurefile_info_dict.keys():
+                        featurefile_info_dict[row[0]] = {}
 
-                    if featurefileheaderlist[counter] not in featureinfodict[row[0]].keys():
-                        featureinfodict[row[0]][featurefileheaderlist[counter]] = row[1:][counter]
+                    if featurefileheaderlist[counter] not in featurefile_info_dict[row[0]].keys():
+                        featurefile_info_dict[row[0]][featurefileheaderlist[counter]] = row[1:][counter]
                     #######################################################################
                     # add the transcript - gene association
                     # Key is feature id
@@ -97,16 +97,16 @@ def readfeaturesmetadatafile(featuresfilename: str) -> tuple[dict, dict, dict, d
         featurefile.close()
         ###################################################################################################
         # Normalize the featureid to count association
-        transcript_or_feature_to_count_normalized_association = normalizeovermaximum(transcript_or_feature_to_count_normalized_association)
+        transcript_or_feature_to_count_normalized_association = normalize_over_maximum_value(transcript_or_feature_to_count_normalized_association)
         ###################################################################################################
         # Normalize the featureid to confidence association
-        transcript_or_feature_to_confidence_normalized_association = normalizeovermaximum(transcript_or_feature_to_confidence_normalized_association)
+        transcript_or_feature_to_confidence_normalized_association = normalize_over_maximum_value(transcript_or_feature_to_confidence_normalized_association)
         ###################################################################################################
         # print(json.dumps(gene_to_transcript_or_feature_association, sort_keys=True, indent=2))
         # print(json.dumps(pathway_to_module_nummodulesperpathway_association, sort_keys=True, indent=2))
         # print(json.dumps(gene_to_pathway_association, sort_keys=True, indent=2))
         # Normalize pathway gene association over number of genes per pathway
-        pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes = pathwayrank(pathway_to_gene_association,
+        pathways_ranked_by_positive_correln_betn_number_of_modules_per_pathway_and_number_of_genes_in_each_module = pathwayrank(pathway_to_gene_association,
                                                                                     pathway_to_module_nummodulesperpathway_association)
     # Values returned
     # Feature metadata dict
@@ -114,11 +114,11 @@ def readfeaturesmetadatafile(featuresfilename: str) -> tuple[dict, dict, dict, d
     # feature to confidence association
     # feature to count normalized association
     # gene to transcript normalized
-    # pathway rank normalized by weighted gene-numberOfModules correlation
+    # pathway rank normalized by weighted correlation between number of modules per pathway and number of genes per module correlation
     # gene to pathway association
     # pathway to gene association
-    return featureinfodict, transcript_or_feature_to_gene_association, \
+    return featurefile_info_dict, transcript_or_feature_to_gene_association, \
            transcript_or_feature_to_confidence_normalized_association, \
            transcript_or_feature_to_count_normalized_association, gene_to_transcript_or_feature_association, \
-           pathways_ranked_by_positivecorrelnbetnnummodules_and_numgenes, \
+           pathways_ranked_by_positive_correln_betn_number_of_modules_per_pathway_and_number_of_genes_in_each_module, \
            gene_to_pathway_association, pathway_to_gene_association

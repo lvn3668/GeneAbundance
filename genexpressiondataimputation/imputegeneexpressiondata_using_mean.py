@@ -1,12 +1,12 @@
 # Author Lalitha Viswanathan
-# Package to impute gene expression data
+# Package to impute gene expression data using mean of existing values
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
 from sklearn.impute import SimpleImputer
 
 
-def imputegenexpressiondata(geneid_expressionvalues: dict) -> DataFrame:
+def imputegenexpressiondata_using_mean(geneid_expressionvalues: dict) -> DataFrame:
     df_genetranscript_exprvals: DataFrame = pd.DataFrame.from_dict(geneid_expressionvalues, orient='index').T
     print(df_genetranscript_exprvals)
     imp = SimpleImputer(missing_values=np.NaN, strategy='mean')
